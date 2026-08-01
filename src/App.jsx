@@ -10,25 +10,64 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const fetchProfile = async (userId) => {
+  const fetchProfile = async (userId, userEmail) => {
+    setAuthLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Fetch current profile record cleanly
+      let { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) throw error;
-      
-      if (data) {
-        setProfile(data);
-      } else {
-        // Fallback role pending
-        setProfile({ id: userId, role: 'pending', email: session?.user?.email });
+      if (profileError) throw profileError;
+
+      // If no profile exists, or if role is currently pending
+      if (!profileData || profileData.role === 'pending') {
+        // Query to check if any user with role = 'owner' exists
+        const { data: ownersList, error: ownerError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'owner');
+
+        if (ownerError) throw ownerError;
+
+        // If NO owners exist in the system, automatically promote this first user to 'owner'
+        if (!ownersList || ownersList.length === 0) {
+          const newProfile = {
+            id: userId,
+            email: userEmail,
+            full_name: 'Owner',
+            role: 'owner',
+            updated_at: new Date().toISOString()
+          };
+
+          const { data: upsertedData, error: upsertError } = await supabase
+            .from('profiles')
+            .upsert(newProfile)
+            .select()
+            .maybeSingle();
+
+          if (upsertError) throw upsertError;
+          profileData = upsertedData || newProfile;
+        } else if (!profileData) {
+          // If owners exist, but this profile doesn't, create it as pending
+          const newProfile = {
+            id: userId,
+            email: userEmail,
+            full_name: 'Pending User',
+            role: 'pending',
+            updated_at: new Date().toISOString()
+          };
+          await supabase.from('profiles').upsert(newProfile);
+          profileData = newProfile;
+        }
       }
+
+      setProfile(profileData);
     } catch (error) {
-      console.error('Error loading user profile:', error);
-      setProfile({ id: userId, role: 'pending', email: session?.user?.email });
+      console.error('Error in fetchProfile flow:', error);
+      setProfile({ id: userId, role: 'pending', email: userEmail });
     } finally {
       setAuthLoading(false);
     }
@@ -39,7 +78,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session: activeSession } }) => {
       setSession(activeSession);
       if (activeSession) {
-        fetchProfile(activeSession.user.id);
+        fetchProfile(activeSession.user.id, activeSession.user.email);
       } else {
         setAuthLoading(false);
       }
@@ -49,7 +88,7 @@ export default function App() {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, activeSession) => {
       setSession(activeSession);
       if (activeSession) {
-        fetchProfile(activeSession.user.id);
+        fetchProfile(activeSession.user.id, activeSession.user.email);
       } else {
         setProfile(null);
         setAuthLoading(false);

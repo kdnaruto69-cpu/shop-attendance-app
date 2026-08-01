@@ -21,14 +21,14 @@ if (!useMock) {
   
   // Seed initial mock data in localStorage if not present
   const seedMockData = () => {
-    // Check seed version. If old or not v3, clear existing mock data to apply the fresh clean state
+    // Check seed version. If old or not v4, clear existing mock data to apply the fresh clean state
     const seedVersion = localStorage.getItem('mock_seed_version');
-    if (seedVersion !== 'v3') {
+    if (seedVersion !== 'v4') {
       localStorage.removeItem('mock_profiles');
       localStorage.removeItem('mock_staff');
       localStorage.removeItem('mock_attendance');
       sessionStorage.removeItem('mock_session');
-      localStorage.setItem('mock_seed_version', 'v3');
+      localStorage.setItem('mock_seed_version', 'v4');
     }
 
     // 1. Seed Users / Profiles (Seeding fresh owner credentials set by AI)
@@ -39,7 +39,7 @@ if (!useMock) {
           email: 'owner@shop.com', 
           full_name: 'V-Mart Owner', 
           role: 'owner', 
-          password: 'owner',
+          password: 'owner123', // Pre-seeded password
           updated_at: new Date().toISOString() 
         }
       ];
@@ -336,7 +336,7 @@ if (!useMock) {
         
         // Strict password checking for seeded users
         if (!matched || (matched.password && matched.password !== password)) {
-          return { data: null, error: { message: 'Invalid credentials. Use username "owner" and password "owner".' } };
+          return { data: null, error: { message: 'Invalid credentials. Use username "owner" and password "owner123".' } };
         }
         
         // Successful mock login
