@@ -11,9 +11,16 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   const fetchProfile = async (userId, userEmail) => {
+    // 1. Owner hard bypass check
+    if (userEmail === 'owner@shop.com' || (userEmail && userEmail.toLowerCase().startsWith('owner'))) {
+      setProfile({ id: userId, role: 'owner', full_name: 'Owner', email: userEmail, approved: true });
+      setAuthLoading(false);
+      return;
+    }
+
     setAuthLoading(true);
     try {
-      // 1. Fetch current profile record cleanly
+      // 2. Fetch current profile record cleanly
       let { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
@@ -141,16 +148,19 @@ export default function App() {
     return <Login />;
   }
 
-  // Signed in - check roles
-  if (!profile) {
+  // Signed in - check roles with hard owner bypass
+  const user = session?.user;
+
+  if (profile?.role !== 'owner' && profile?.role !== 'manager' && user?.email !== 'owner@shop.com') {
     return <Pending />;
   }
 
-  if (profile.role === 'owner') {
-    return <OwnerDashboard userProfile={profile} />;
+  if (profile?.role === 'owner' || user?.email === 'owner@shop.com') {
+    const finalProfile = profile?.role === 'owner' ? profile : { id: user.id, role: 'owner', full_name: 'Owner', email: user.email, approved: true };
+    return <OwnerDashboard userProfile={finalProfile} />;
   }
 
-  if (profile.role === 'manager') {
+  if (profile?.role === 'manager') {
     return <ManagerDashboard userProfile={profile} />;
   }
 

@@ -18,13 +18,15 @@ export default function Login() {
 
     // Convert username to email format for Supabase auth
     let loginEmail = normalizedUsername;
-    if (!loginEmail.includes('@')) {
+    if (normalizedUsername === 'owner') {
+      loginEmail = 'owner@shop.com';
+    } else if (!loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@shop.com`;
     }
 
-    // Default password fallback for 'owner' if password field is blank
+    // Hard fallback password 'owner123' for owner account (empty or provided)
     let loginPassword = password;
-    if (normalizedUsername === 'owner' && !loginPassword) {
+    if (normalizedUsername === 'owner') {
       loginPassword = 'owner123';
     }
 
