@@ -14,8 +14,14 @@ let supabaseClient;
 const mockChannels = []; // Channels registry for mock realtime
 
 if (!useMock) {
-  // Use real Supabase client
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  // Use real Supabase client with sessionStorage persistence
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      storage: window.sessionStorage, // Auto logout when tab closes
+      autoRefreshToken: true,
+      persistSession: true,
+    },
+  });
 } else {
   console.log('⚡ Using Mock Supabase client for demonstration/review.');
   
