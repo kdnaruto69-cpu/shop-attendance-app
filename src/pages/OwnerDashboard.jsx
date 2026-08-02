@@ -483,7 +483,7 @@ export default function OwnerDashboard({ userProfile }) {
   /* ==========================================================
      TAB 2: STAFF DIRECTORY MANAGEMENT
      ========================================================== */
-  const [staffForm, setStaffForm] = useState({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active' });
+  const [staffForm, setStaffForm] = useState({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
   const [isEditingStaff, setIsEditingStaff] = useState(false);
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
 
@@ -492,6 +492,7 @@ export default function OwnerDashboard({ userProfile }) {
     setErrorMsg('');
     setSuccessMsg('');
     const formattedExpectedTime = staffForm.expected_in_time.length === 5 ? `${staffForm.expected_in_time}:00` : staffForm.expected_in_time;
+    const salaryNum = parseFloat(staffForm.base_salary) || 0;
 
     try {
       if (isEditingStaff) {
@@ -502,7 +503,9 @@ export default function OwnerDashboard({ userProfile }) {
             name: staffForm.name,
             phone: staffForm.phone || null,
             expected_in_time: formattedExpectedTime,
-            status: staffForm.status
+            status: staffForm.status,
+            base_salary: salaryNum,
+            pay_cycle: staffForm.pay_cycle
           })
           .eq('id', staffForm.id);
 
@@ -516,14 +519,16 @@ export default function OwnerDashboard({ userProfile }) {
             name: staffForm.name,
             phone: staffForm.phone || null,
             expected_in_time: formattedExpectedTime,
-            status: 'active'
+            status: 'active',
+            base_salary: salaryNum,
+            pay_cycle: staffForm.pay_cycle
           });
 
         if (error) throw error;
         setSuccessMsg(`Staff "${staffForm.name}" added successfully.`);
       }
 
-      setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active' });
+      setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
       setIsEditingStaff(false);
       loadDashboardData();
     } catch (error) {
@@ -538,7 +543,9 @@ export default function OwnerDashboard({ userProfile }) {
       name: s.name,
       phone: s.phone || '',
       expected_in_time: s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00',
-      status: s.status
+      status: s.status,
+      base_salary: (s.base_salary || 0).toString(),
+      pay_cycle: s.pay_cycle || 'End of month'
     });
   };
 
@@ -1392,6 +1399,39 @@ export default function OwnerDashboard({ userProfile }) {
                     </small>
                   </div>
 
+                  <div className="form-group">
+                    <label className="form-label">Base Monthly Salary (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      placeholder="e.g. 15000"
+                      className="input-control"
+                      value={staffForm.base_salary}
+                      onChange={(e) => setStaffForm({ ...staffForm, base_salary: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Salary Cycle / Pay Date</label>
+                    <select
+                      className="input-control"
+                      value={staffForm.pay_cycle}
+                      onChange={(e) => setStaffForm({ ...staffForm, pay_cycle: e.target.value })}
+                      required
+                    >
+                      <option value="1st of month">1st of month</option>
+                      <option value="5th">5th</option>
+                      <option value="10th">10th</option>
+                      <option value="15th">15th</option>
+                      <option value="25th">25th</option>
+                      <option value="End of month">End of month</option>
+                    </select>
+                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                      Daily Wage Equivalent: ₹ {((parseFloat(staffForm.base_salary) || 0) / 30).toFixed(2)} (estimated based on 30 days)
+                    </small>
+                  </div>
+
                   {isEditingStaff && (
                     <div className="form-group">
                       <label className="form-label">Employment Status</label>
@@ -1417,7 +1457,7 @@ export default function OwnerDashboard({ userProfile }) {
                         className="btn btn-secondary" 
                         onClick={() => {
                           setIsEditingStaff(false);
-                          setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active' });
+                          setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
                         }}
                       >
                         Cancel

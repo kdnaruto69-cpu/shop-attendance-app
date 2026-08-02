@@ -11,6 +11,7 @@ export default function Expenses({ userProfile }) {
   const [expenses, setExpenses] = useState([]);
   const [staff, setStaff] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -32,7 +33,8 @@ export default function Expenses({ userProfile }) {
     title: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
+    staff_id: ''
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -55,12 +57,12 @@ export default function Expenses({ userProfile }) {
     }).format(amount);
   };
 
-  // Load staff, expenses, and categories
+  // Load staff, expenses, categories, and attendance
   const loadData = useCallback(async () => {
     setLoading(true);
     setErrorMsg('');
     try {
-      // 1. Fetch active staff members for Salary tracker
+      // 1. Fetch active staff members for Salary tracker and profiling
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
         .select('*')
@@ -76,17 +78,23 @@ export default function Expenses({ userProfile }) {
       });
       setSalaryInputs(prev => ({ ...initialSalaryInputs, ...prev }));
 
-      // 2. Fetch expenses for selected month
+      // Compute date range to query: from start of previous month to end of selected month
+      // This ensures we capture cross-month cycles (e.g. 25th to 24th) and associated advances/attendance.
       const [year, month] = selectedMonth.split('-').map(Number);
-      const startOfMonth = `${selectedMonth}-01`;
-      const lastDay = new Date(year, month, 0).getDate();
-      const endOfMonth = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+      const prevDate = new Date(year, month - 2, 1);
+      const prevYear = prevDate.getFullYear();
+      const prevMonth = prevDate.getMonth() + 1;
+      const startQueryDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
 
+      const lastDay = new Date(year, month, 0).getDate();
+      const endQueryDate = `${selectedMonth}-${String(lastDay).padStart(2, '0')}`;
+
+      // 2. Fetch expenses within range
       const { data: expenseData, error: expenseError } = await supabase
         .from('shop_expenses')
         .select('*')
-        .gte('date', startOfMonth)
-        .lte('date', endOfMonth)
+        .gte('date', startQueryDate)
+        .lte('date', endQueryDate)
         .order('date', { ascending: false });
       
       if (expenseError) throw expenseError;
@@ -99,9 +107,19 @@ export default function Expenses({ userProfile }) {
         .order('name', { ascending: true });
       if (catError) throw catError;
       setCategories(catData || []);
+
+      // 4. Fetch attendance records in query range
+      const { data: attData, error: attError } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('date', startQueryDate)
+        .lte('date', endQueryDate);
+      if (attError) throw attError;
+      setAttendance(attData || []);
+
     } catch (error) {
       console.error(error);
-      setErrorMsg('Failed to load expense, category, and salary data.');
+      setErrorMsg('Failed to load expense, attendance, category, and salary data.');
     } finally {
       setLoading(false);
     }
@@ -110,6 +128,119 @@ export default function Expenses({ userProfile }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Helper to compute payroll details for a staff member within their pay cycle
+  const getCycleInfo = (s) => {
+    const payCycle = s.pay_cycle || 'End of month';
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const lastDayOfSelectedMonth = new Date(year, month, 0).getDate();
+
+    let start, end, totalDays;
+
+    if (payCycle === '1st of month' || payCycle === 'End of month') {
+      start = `${selectedMonth}-01`;
+      end = `${selectedMonth}-${String(lastDayOfSelectedMonth).padStart(2, '0')}`;
+      totalDays = lastDayOfSelectedMonth;
+    } else {
+      const dayNum = parseInt(payCycle); // 5, 10, 15, 25
+      const prevDate = new Date(year, month - 2, dayNum);
+      const prevYear = prevDate.getFullYear();
+      const prevMonth = prevDate.getMonth() + 1;
+      
+      start = `${prevYear}-${String(prevMonth).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const endDay = dayNum - 1;
+      end = `${year}-${String(month).padStart(2, '0')}-${String(endDay).padStart(2, '0')}`;
+      
+      const dStart = new Date(start);
+      const dEnd = new Date(end);
+      totalDays = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
+    }
+
+    // Filter attendance for this staff member in this cycle
+    const staffAtt = attendance.filter(a => a.staff_id === s.id && a.date >= start && a.date <= end);
+    const daysPresent = staffAtt.filter(a => a.status === 'present').length;
+    const daysAbsent = staffAtt.filter(a => a.status === 'absent').length;
+
+    // Base Monthly Salary
+    const monthlySalary = parseFloat(s.base_salary) || 0;
+
+    // Calculated Base Payable = (Monthly Salary / Total Cycle Days) * Days Present
+    const basePayable = totalDays > 0 ? (monthlySalary / totalDays) * daysPresent : 0;
+
+    // Advances/loans linked to staff member in this cycle
+    const staffExpenses = expenses.filter(e => e.staff_id === s.id && e.date >= start && e.date <= end);
+    
+    const totalAdvances = staffExpenses
+      .filter(e => e.title.toLowerCase().includes('advance') || e.title.toLowerCase().includes('loan'))
+      .reduce((sum, curr) => sum + parseFloat(curr.amount), 0);
+
+    const totalBonuses = staffExpenses
+      .filter(e => e.title.toLowerCase().includes('bonus'))
+      .reduce((sum, curr) => sum + parseFloat(curr.amount), 0);
+
+    // Final Net Payable Salary
+    const netPayable = Math.max(0, basePayable + totalBonuses - totalAdvances);
+
+    // Check if payroll payout already logged for this cycle
+    const payoutRecord = staffExpenses.find(e => 
+      e.category === 'Salary Payout' && 
+      !e.title.toLowerCase().includes('advance') && 
+      !e.title.toLowerCase().includes('loan') && 
+      !e.title.toLowerCase().includes('bonus')
+    );
+    const isPaid = !!payoutRecord;
+
+    return {
+      start,
+      end,
+      totalDays,
+      daysPresent,
+      daysAbsent,
+      monthlySalary,
+      basePayable,
+      totalAdvances,
+      totalBonuses,
+      netPayable,
+      isPaid,
+      paidAmount: payoutRecord ? parseFloat(payoutRecord.amount) : 0
+    };
+  };
+
+  // Automated Logging of Payout
+  const handleLogSalaryPayout = async (staffId, staffName, cycleInfo) => {
+    if (cycleInfo.isPaid) return;
+    if (cycleInfo.netPayable <= 0) {
+      alert('Calculated net payable amount is ₹0.00. No payout to record.');
+      return;
+    }
+    
+    if (!window.confirm(`Log automated salary payout of ${formatCurrency(cycleInfo.netPayable)} for ${staffName} for the cycle ${cycleInfo.start} to ${cycleInfo.end}?`)) return;
+
+    setErrorMsg('');
+    setSuccessMsg('');
+    setActionLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('shop_expenses')
+        .insert({
+          category: 'Salary Payout',
+          title: `Salary Payout - ${staffName}`,
+          amount: cycleInfo.netPayable,
+          date: new Date().toISOString().split('T')[0],
+          notes: `Automated cycle payout (${cycleInfo.start} to ${cycleInfo.end}). Days present: ${cycleInfo.daysPresent}/${cycleInfo.totalDays}. Base Payable: ${formatCurrency(cycleInfo.basePayable)}. Advances deducted: ${formatCurrency(cycleInfo.totalAdvances)}.`,
+          staff_id: staffId
+        });
+
+      if (error) throw error;
+      setSuccessMsg(`Salary payout recorded for ${staffName} successfully.`);
+      loadData();
+    } catch (error) {
+      setErrorMsg(error.message || `Failed to log payout for ${staffName}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Handle Category Creation Directly (Owner console)
   const handleCreateCategoryDirectly = async (e) => {
@@ -222,7 +353,8 @@ export default function Expenses({ userProfile }) {
             title: expenseForm.title.trim(),
             amount: amountNum,
             date: expenseForm.date,
-            notes: expenseForm.notes.trim() || null
+            notes: expenseForm.notes.trim() || null,
+            staff_id: expenseForm.staff_id || null
           })
           .eq('id', expenseForm.id);
 
@@ -237,7 +369,8 @@ export default function Expenses({ userProfile }) {
             title: expenseForm.title.trim(),
             amount: amountNum,
             date: expenseForm.date,
-            notes: expenseForm.notes.trim() || null
+            notes: expenseForm.notes.trim() || null,
+            staff_id: expenseForm.staff_id || null
           });
 
         if (error) throw error;
@@ -251,7 +384,8 @@ export default function Expenses({ userProfile }) {
         title: '',
         amount: '',
         date: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        staff_id: ''
       });
       setShowNewCategoryInput(false);
       setNewCategoryName('');
@@ -274,7 +408,8 @@ export default function Expenses({ userProfile }) {
       title: exp.title,
       amount: exp.amount.toString(),
       date: exp.date,
-      notes: exp.notes || ''
+      notes: exp.notes || '',
+      staff_id: exp.staff_id || ''
     });
     // Scroll to form smoothly
     const formElement = document.getElementById('expense-form-card');
@@ -306,7 +441,7 @@ export default function Expenses({ userProfile }) {
     }
   };
 
-  // Update Salary Inputs state
+  // Update Salary Inputs state for Manual Tracker
   const handleSalaryInputChange = (staffId, field, value) => {
     setSalaryInputs(prev => ({
       ...prev,
@@ -317,7 +452,7 @@ export default function Expenses({ userProfile }) {
     }));
   };
 
-  // Handle Salary Payout Save
+  // Handle Salary Payout Save (Manual Tracker)
   const handleRecordSalaryPayout = async (staffId, staffName) => {
     const inputs = salaryInputs[staffId] || { baseSalary: '', advance: '', bonus: '' };
     const baseVal = parseFloat(inputs.baseSalary) || 0;
@@ -343,17 +478,19 @@ export default function Expenses({ userProfile }) {
           title: `Base Salary - ${staffName}`,
           amount: baseVal,
           date: currentDateStr,
-          notes: `Monthly base salary payout for ${staffName}.`
+          notes: `Monthly base salary payout for ${staffName}.`,
+          staff_id: staffId
         });
       }
 
       if (advanceVal > 0) {
         transactions.push({
           category: 'Salary Payout',
-          title: `Salary Advance/Loan - ${staffName}`,
+          title: `Salary Advance - ${staffName}`,
           amount: advanceVal,
           date: currentDateStr,
-          notes: `Advance/loan payout for ${staffName}.`
+          notes: `Advance/loan payout for ${staffName}.`,
+          staff_id: staffId
         });
       }
 
@@ -363,7 +500,8 @@ export default function Expenses({ userProfile }) {
           title: `Salary Bonus - ${staffName}`,
           amount: bonusVal,
           date: currentDateStr,
-          notes: `Performance bonus payout for ${staffName}.`
+          notes: `Performance bonus payout for ${staffName}.`,
+          staff_id: staffId
         });
       }
 
@@ -373,7 +511,7 @@ export default function Expenses({ userProfile }) {
 
       if (error) throw error;
 
-      setSuccessMsg(`Salary payout recorded for ${staffName}.`);
+      setSuccessMsg(`Salary payout transactions recorded for ${staffName}.`);
       
       // Clear inputs for this staff member
       setSalaryInputs(prev => ({
@@ -389,14 +527,15 @@ export default function Expenses({ userProfile }) {
     }
   };
 
-  // Compute metrics for the selected month
-  const totalExpenses = expenses.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
-  const totalSalaries = expenses
+  // Compute metrics filter strictly by the selectedMonth (to represent operational expenses correctly)
+  const historyExpenses = expenses.filter(e => e.date.startsWith(selectedMonth));
+
+  const totalExpenses = historyExpenses.reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
+  const totalSalaries = historyExpenses
     .filter(e => e.category === 'Salary Payout')
     .reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
   
-  // Bills filter covers 'Electricity Bill', 'Water Bill', 'Shop Rent', and legacy 'Electricity/Current Bill'
-  const totalUtilities = expenses
+  const totalUtilities = historyExpenses
     .filter(e => ['Electricity Bill', 'Water Bill', 'Shop Rent', 'Electricity/Current Bill'].includes(e.category))
     .reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
 
@@ -456,7 +595,7 @@ export default function Expenses({ userProfile }) {
         </div>
       )}
 
-      {/* 2. Split Screen: Quick Add and Salary Tracker */}
+      {/* 2. Split Screen: Quick Add and Manual Salary Payout */}
       <div className="dashboard-split equal">
         
         {/* Quick Add Expense Form */}
@@ -547,6 +686,20 @@ export default function Expenses({ userProfile }) {
             </div>
 
             <div className="form-group">
+              <label className="form-label">Link to Worker (Optional)</label>
+              <select
+                className="input-control"
+                value={expenseForm.staff_id || ''}
+                onChange={(e) => setExpenseForm({ ...expenseForm, staff_id: e.target.value })}
+              >
+                <option value="">-- Choose Staff Personnel --</option>
+                {staff.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
               <label className="form-label">Additional Notes</label>
               <textarea
                 placeholder="Optional payment notes or details..."
@@ -573,7 +726,8 @@ export default function Expenses({ userProfile }) {
                       title: '',
                       amount: '',
                       date: new Date().toISOString().split('T')[0],
-                      notes: ''
+                      notes: '',
+                      staff_id: ''
                     });
                     setShowNewCategoryInput(false);
                     setNewCategoryName('');
@@ -586,14 +740,14 @@ export default function Expenses({ userProfile }) {
           </form>
         </div>
 
-        {/* Salary Payout Tracker */}
+        {/* Manual Salary Payout Tracker */}
         <div className="glass-card flex" style={{ flexDirection: 'column' }}>
-          <h2>Salary Payout Tracker</h2>
+          <h2>Quick Payouts / Advances</h2>
           <p className="mb-4" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Distribute monthly salaries, loans/advances, or bonuses to active staff members.
+            Distribute individual salary advances, bonuses, or custom payments to active staff members.
           </p>
 
-          <div style={{ flexGrow: 1, overflowY: 'auto', maxHeight: '420px', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.25rem' }}>
+          <div style={{ flexGrow: 1, overflowY: 'auto', maxHeight: '490px', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.25rem' }}>
             {staff.length === 0 ? (
               <div className="text-center" style={{ padding: '2rem 0', color: 'var(--text-muted)' }}>
                 No active staff found. Add staff in the "Staff Directory" tab.
@@ -606,7 +760,7 @@ export default function Expenses({ userProfile }) {
                     <div className="flex justify-between items-center mb-3">
                       <strong>{s.name}</strong>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        Expected Shift: {s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00'}
+                        Salary Cycle: {s.pay_cycle || 'End of month'}
                       </span>
                     </div>
 
@@ -660,6 +814,106 @@ export default function Expenses({ userProfile }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* 3. Automated Monthly Salary Reports & Payslip Generator */}
+      <div className="glass-card">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2>Automated Monthly Salary Reports</h2>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              Calculated dynamically based on worker salary profiles, cycles, actual attendance, and logged advances.
+            </p>
+          </div>
+        </div>
+
+        {staff.length === 0 ? (
+          <div className="text-center" style={{ padding: '3rem 0', color: 'var(--text-muted)' }}>
+            No active workers found. Add worker salary profiles in the "Staff Directory" tab.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '1.5rem' }}>
+            {staff.map(s => {
+              const info = getCycleInfo(s);
+              return (
+                <div key={s.id} className="glass-card" style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1.5rem' }}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#fff' }}>{s.name}</h3>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-color)' }}>Cycle: {s.pay_cycle || 'End of month'}</span>
+                    </div>
+                    {info.isPaid ? (
+                      <span className="badge badge-success flex items-center gap-1">
+                        <Check size={12} /> Paid
+                      </span>
+                    ) : (
+                      <span className="badge badge-warning">Unpaid</span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '0.75rem' }}>
+                    <div className="flex justify-between mb-1">
+                      <span>Date range:</span>
+                      <strong style={{ color: '#fff' }}>{info.start} to {info.end}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Cycle Days:</span>
+                      <strong>{info.totalDays} Days</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Monthly Salary Profile:</span>
+                      <span>{formatCurrency(info.monthlySalary)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Attendance:</span>
+                      <span style={{ color: 'var(--success-color)' }}>{info.daysPresent} Present <span style={{ color: 'var(--text-muted)' }}>/</span> <span style={{ color: 'var(--danger-color)' }}>{info.daysAbsent} Absent</span></span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-secondary)' }}>Calculated Base Payable:</span>
+                      <span>{formatCurrency(info.basePayable)}</span>
+                    </div>
+                    {info.totalBonuses > 0 && (
+                      <div className="flex justify-between" style={{ color: 'var(--success-color)' }}>
+                        <span>Cycle Bonuses (+):</span>
+                        <span>{formatCurrency(info.totalBonuses)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between" style={{ color: 'var(--danger-color)' }}>
+                      <span>Cycle Advances/Loans (-):</span>
+                      <span>{formatCurrency(info.totalAdvances)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mt-4 pt-3" style={{ borderTop: '1px dashed rgba(255,255,255,0.1)' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {info.isPaid ? 'Amount Transferred' : 'Net Payable Salary'}
+                      </span>
+                      <strong style={{ fontSize: '1.25rem', color: info.isPaid ? 'var(--text-secondary)' : 'var(--success-color)' }}>
+                        {formatCurrency(info.isPaid ? info.paidAmount : info.netPayable)}
+                      </strong>
+                    </div>
+
+                    {!info.isPaid ? (
+                      <button 
+                        onClick={() => handleLogSalaryPayout(s.id, s.name, info)}
+                        className="btn btn-primary btn-sm flex items-center gap-1"
+                        disabled={actionLoading || info.netPayable <= 0}
+                      >
+                        <DollarSign size={14} /> Log Payout
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Logged in expenses</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Category Management Settings Card (Owners only) */}
@@ -725,7 +979,7 @@ export default function Expenses({ userProfile }) {
         </div>
       )}
 
-      {/* 3. Expense History Table */}
+      {/* 4. Expense History Table */}
       <div className="glass-card">
         <div className="flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: '1rem' }}>
           <h2>Expense & Salary History</h2>
@@ -749,7 +1003,7 @@ export default function Expenses({ userProfile }) {
           <div className="spinner-container" style={{ padding: '3rem 0' }}>
             <div className="spinner"></div>
           </div>
-        ) : expenses.length === 0 ? (
+        ) : historyExpenses.length === 0 ? (
           <div className="text-center" style={{ padding: '4rem 0', color: 'var(--text-muted)' }}>
             No expense records found for the month of {selectedMonth}.
           </div>
@@ -767,7 +1021,7 @@ export default function Expenses({ userProfile }) {
                 </tr>
               </thead>
               <tbody>
-                {expenses.map(e => (
+                {historyExpenses.map(e => (
                   <tr key={e.id}>
                     <td><span className="flex items-center gap-1"><Calendar size={13} style={{ color: 'var(--text-muted)' }} /> {e.date}</span></td>
                     <td>

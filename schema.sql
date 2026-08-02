@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS public.staff (
     phone TEXT,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     expected_in_time TIME DEFAULT '09:00:00', -- standard shift start time
+    base_salary NUMERIC(12, 2) DEFAULT 0.00, -- monthly base salary
+    pay_cycle TEXT DEFAULT 'End of month' CHECK (pay_cycle IN ('1st of month', '5th', '10th', '15th', '25th', 'End of month')), -- salary cycle start/end
     created_at TIMESTAMPTZ DEFAULT NOW(),
     joined_date DATE DEFAULT CURRENT_DATE
 );
@@ -267,6 +269,7 @@ CREATE TABLE IF NOT EXISTS public.shop_expenses (
     amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
     date DATE DEFAULT CURRENT_DATE NOT NULL,
     notes TEXT,
+    staff_id UUID REFERENCES public.staff(id) ON DELETE SET NULL, -- optional link to worker (e.g. for advances & payouts)
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
