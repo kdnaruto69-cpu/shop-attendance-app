@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Users, UserCheck, UserX, Clock, Search, 
-  RefreshCw, LogOut, Store, LogIn, LogOut as CheckOutIcon, Wallet
+  RefreshCw, LogOut, Store, LogIn, LogOut as CheckOutIcon
 } from 'lucide-react';
-import Expenses from './Expenses';
 
 export default function ManagerDashboard({ userProfile }) {
   const [activeTab, setActiveTab] = useState('attendance');
@@ -16,23 +15,16 @@ export default function ManagerDashboard({ userProfile }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  const handleTabChange = (tabName) => {
-    setActiveTab(tabName);
-    if (tabName === 'expenses') {
-      window.history.pushState({}, '', '/expenses');
-    } else {
-      window.history.pushState({}, '', '/');
-    }
-  };
-
   useEffect(() => {
     if (window.location.pathname === '/expenses') {
-      setActiveTab('expenses');
+      window.history.replaceState({}, '', '/');
+      setErrorMsg('Access Denied: Expenses & Salaries are restricted to Owner accounts.');
+      setActiveTab('attendance');
     }
     const handlePopState = () => {
       if (window.location.pathname === '/expenses') {
-        setActiveTab('expenses');
-      } else {
+        window.history.replaceState({}, '', '/');
+        setErrorMsg('Access Denied: Expenses & Salaries are restricted to Owner accounts.');
         setActiveTab('attendance');
       }
     };
@@ -231,24 +223,7 @@ export default function ManagerDashboard({ userProfile }) {
             <span className="logo-text" style={{ fontSize: '1.05rem' }}>V MART Attendance</span>
           </div>
 
-          <nav className="flex gap-2" style={{ margin: '0 auto 0 2rem' }}>
-            <button 
-              onClick={() => handleTabChange('attendance')} 
-              className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`}
-              style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            >
-              <Clock size={16} /> Attendance
-            </button>
-            <button 
-              onClick={() => handleTabChange('expenses')} 
-              className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`}
-              style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-            >
-              <Wallet size={16} /> Expenses & Salaries
-            </button>
-          </nav>
-          
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" style={{ marginLeft: 'auto' }}>
             <div className="sidebar-user" style={{ padding: '0.4rem 0.8rem', background: 'rgba(255,255,255,0.02)' }}>
               <span className="user-name">{userProfile.full_name || userProfile.email}</span>
               <span className="user-role">Manager</span>
@@ -265,26 +240,15 @@ export default function ManagerDashboard({ userProfile }) {
           
           <div className="header-container">
             <div className="page-title">
-              {activeTab === 'attendance' ? (
-                <>
-                  <h1>Today's Attendance</h1>
-                  <p>Daily shift tracker for {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </>
-              ) : (
-                <>
-                  <h1>Expenses & Salaries</h1>
-                  <p>Track shop expenses, utility bills, and staff payroll payouts</p>
-                </>
-              )}
+              <h1>Today's Attendance</h1>
+              <p>Daily shift tracker for {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
             </div>
             
             <div className="header-actions">
-              {activeTab === 'attendance' && (
-                <button onClick={loadData} className="btn btn-secondary" disabled={loading} style={{ padding: '0.5rem 1rem' }}>
-                  <RefreshCw size={16} className={loading ? 'spinner' : ''} />
-                  Refresh
-                </button>
-              )}
+              <button onClick={loadData} className="btn btn-secondary" disabled={loading} style={{ padding: '0.5rem 1rem' }}>
+                <RefreshCw size={16} className={loading ? 'spinner' : ''} />
+                Refresh
+              </button>
             </div>
           </div>
 
@@ -477,10 +441,6 @@ export default function ManagerDashboard({ userProfile }) {
                 )}
               </div>
             </>
-          )}
-
-          {activeTab === 'expenses' && (
-            <Expenses userProfile={userProfile} setActiveTab={setActiveTab} />
           )}
         </main>
       </div>

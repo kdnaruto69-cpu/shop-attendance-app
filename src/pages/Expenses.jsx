@@ -539,6 +539,18 @@ export default function Expenses({ userProfile, setActiveTab }) {
     .filter(e => ['Electricity Bill', 'Water Bill', 'Shop Rent', 'Electricity/Current Bill'].includes(e.category))
     .reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
 
+  if (userProfile?.role !== 'owner') {
+    return (
+      <div className="glass-card" style={{ padding: '3rem 2rem', textAlign: 'center', margin: '2rem auto', maxWidth: '500px' }}>
+        <AlertCircle size={40} style={{ color: 'var(--danger-color)', marginBottom: '1rem' }} />
+        <h2 style={{ color: '#fff', marginBottom: '0.5rem' }}>Access Denied</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          The Expenses & Salaries module is restricted to Owner accounts only.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
       
