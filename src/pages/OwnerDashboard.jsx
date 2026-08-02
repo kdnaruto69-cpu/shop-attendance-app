@@ -1,15 +1,191 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, createSecondaryClient } from '../supabaseClient';
 import { 
-  Users, UserCheck, UserX, Clock, Calendar, Shield, Search, Plus, 
-  Edit2, Trash2, FileText, Download, Save, RefreshCw, LogOut, Store, Check, AlertCircle, X, ArrowUpRight
+  Users, UserCheck, UserX, Clock, Shield, Search, 
+  Edit2, Trash2, FileText, Download, Save, RefreshCw, LogOut, Store, Check, AlertCircle, X, Wallet
 } from 'lucide-react';
+import Expenses from './Expenses';
+
+// Subcomponent for each staff attendance card with Owner management actions
+function OwnerStaffAttendanceCard({ staffMember, record, onMarkPresent, onMarkAbsent, onCheckOut, onReset, onUpdateTimes }) {
+  const isMarked = !!record;
+  const isPresent = record?.status === 'present';
+
+  const [inTime, setInTime] = useState('');
+  const [outTime, setOutTime] = useState('');
+  const [isEditingTimes, setIsEditingTimes] = useState(false);
+
+  const getHoursMinutes = (isoString) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (record) {
+      setInTime(getHoursMinutes(record.in_time));
+      setOutTime(getHoursMinutes(record.out_time));
+    } else {
+      setInTime('09:00');
+      setOutTime('');
+    }
+  }, [record, isEditingTimes]);
+
+  const handleSaveTimes = (e) => {
+    e.preventDefault();
+    if (!inTime) {
+      alert('Check-in time is required.');
+      return;
+    }
+    onUpdateTimes(staffMember.id, inTime, outTime || null);
+    setIsEditingTimes(false);
+  };
+
+  return (
+    <div className="staff-row-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(255,255,255,0.015)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)', gap: '1rem', flexWrap: 'wrap' }}>
+      <div className="staff-card-info">
+        <div className="staff-card-name" style={{ fontWeight: 600, fontSize: '1rem', color: '#fff' }}>{staffMember.name}</div>
+        <div className="staff-card-meta" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+          {staffMember.phone && <span style={{ marginRight: '0.75rem' }}>Phone: {staffMember.phone}</span>}
+          <span>Shift expected in: {staffMember.expected_in_time ? staffMember.expected_in_time.slice(0, 5) : '09:00'}</span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+        {/* Status Badge */}
+        {isMarked ? (
+          isPresent ? (
+            <span className="badge badge-success">Present</span>
+          ) : (
+            <span className="badge badge-danger">Absent</span>
+          )
+        ) : (
+          <span className="badge badge-warning">Not Marked</span>
+        )}
+
+        {/* Time display or inline editing inputs */}
+        {isPresent && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            {isEditingTimes ? (
+              <form onSubmit={handleSaveTimes} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.02)', padding: '0.25rem 0.5rem', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>In:</span>
+                  <input
+                    type="time"
+                    className="time-input"
+                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--card-border)', color: '#fff', padding: '0.2rem 0.35rem', borderRadius: '4px', fontSize: '0.8rem' }}
+                    value={inTime}
+                    required
+                    onChange={(e) => setInTime(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Out:</span>
+                  <input
+                    type="time"
+                    className="time-input"
+                    style={{ background: 'var(--bg-primary)', border: '1px solid var(--card-border)', color: '#fff', padding: '0.2rem 0.35rem', borderRadius: '4px', fontSize: '0.8rem' }}
+                    value={outTime}
+                    onChange={(e) => setOutTime(e.target.value)}
+                  />
+                </div>
+                <button type="submit" className="btn btn-success btn-sm" style={{ padding: '0.25rem 0.4rem', minWidth: 'auto' }} title="Save times">
+                  <Check size={12} />
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" style={{ padding: '0.25rem 0.4rem', minWidth: 'auto' }} onClick={() => setIsEditingTimes(false)}>
+                  <X size={12} />
+                </button>
+              </form>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <span>In: <strong>{inTime || '--:--'}</strong></span>
+                <span>Out: <strong>{outTime || '--:--'}</strong></span>
+                <button 
+                  onClick={() => setIsEditingTimes(true)} 
+                  className="btn btn-secondary btn-sm" 
+                  style={{ padding: '0.25rem', minWidth: 'auto' }} 
+                  title="Edit times manually"
+                >
+                  <Edit2 size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Controls */}
+        <div className="flex gap-2">
+          {!isMarked && (
+            <>
+              <button onClick={() => onMarkPresent(staffMember.id, staffMember.expected_in_time)} className="btn btn-success btn-sm flex items-center gap-1">
+                <UserCheck size={14} /> Present
+              </button>
+              <button onClick={() => onMarkAbsent(staffMember.id)} className="btn btn-danger btn-sm flex items-center gap-1">
+                <UserX size={14} /> Absent
+              </button>
+            </>
+          )}
+
+          {isMarked && (
+            <>
+              {isPresent && !record.out_time && !isEditingTimes && (
+                <button onClick={() => onCheckOut(staffMember.id)} className="btn btn-warning btn-sm flex items-center gap-1">
+                  <Clock size={14} /> Check Out
+                </button>
+              )}
+
+              {/* Explicit toggle actions for Owner */}
+              {isPresent ? (
+                <button onClick={() => onMarkAbsent(staffMember.id)} className="btn btn-secondary btn-sm" title="Switch to Absent">
+                  Switch to Absent
+                </button>
+              ) : (
+                <button onClick={() => onMarkPresent(staffMember.id, staffMember.expected_in_time)} className="btn btn-secondary btn-sm" title="Switch to Present">
+                  Switch to Present
+                </button>
+              )}
+
+              <button onClick={() => onReset(staffMember.id)} className="btn btn-secondary btn-sm" title="Reset/Clear attendance" style={{ padding: '0.35rem' }}>
+                <RefreshCw size={12} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function OwnerDashboard({ userProfile }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Routing sync
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    if (tabName === 'expenses') {
+      window.history.pushState({}, '', '/expenses');
+    } else {
+      window.history.pushState({}, '', '/');
+    }
+  };
+
+  useEffect(() => {
+    if (window.location.pathname === '/expenses') {
+      setActiveTab('expenses');
+    }
+    const handlePopState = () => {
+      if (window.location.pathname === '/expenses') {
+        setActiveTab('expenses');
+      } else {
+        setActiveTab('overview');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // New User Registration Form State
   const [newUserFullName, setNewUserFullName] = useState('');
@@ -31,6 +207,177 @@ export default function OwnerDashboard({ userProfile }) {
   const [staff, setStaff] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState({});
   const [profiles, setProfiles] = useState([]); // signed up users
+
+  // Attendance Tab specific states
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState(todayStr);
+  const [attendanceForSelectedDate, setAttendanceForSelectedDate] = useState({});
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState('all');
+
+  const loadAttendanceForSelectedDate = useCallback(async () => {
+    if (!selectedAttendanceDate) return;
+    setAttendanceLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*, updater:profiles(full_name, email)')
+        .eq('date', selectedAttendanceDate);
+      if (error) throw error;
+      const attMap = {};
+      data.forEach(item => {
+        attMap[item.staff_id] = item;
+      });
+      setAttendanceForSelectedDate(attMap);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to load attendance for the selected date.');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  }, [selectedAttendanceDate]);
+
+  useEffect(() => {
+    loadAttendanceForSelectedDate();
+  }, [loadAttendanceForSelectedDate]);
+
+  const getTimestampForDate = (dateStr, isCheckOut = false, staffExpectedIn = '09:00') => {
+    const now = new Date();
+    if (dateStr === todayStr) {
+      return now.toISOString();
+    }
+    if (isCheckOut) {
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      const ss = String(now.getSeconds()).padStart(2, '0');
+      return new Date(`${dateStr}T${hh}:${mm}:${ss}`).toISOString();
+    } else {
+      const timeStr = staffExpectedIn ? staffExpectedIn.slice(0, 5) : '09:00';
+      return new Date(`${dateStr}T${timeStr}:00`).toISOString();
+    }
+  };
+
+  const ownerMarkPresent = async (staffId, expectedInTime) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    const inTimeIso = getTimestampForDate(selectedAttendanceDate, false, expectedInTime);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .upsert({
+          staff_id: staffId,
+          date: selectedAttendanceDate,
+          status: 'present',
+          in_time: inTimeIso,
+          out_time: null,
+          updated_by: userProfile.id,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'staff_id,date'
+        });
+      if (error) throw error;
+      setSuccessMsg('Staff member marked as Present.');
+      loadAttendanceForSelectedDate();
+      loadDashboardData();
+    } catch (error) {
+      setErrorMsg(error.message || 'Error marking present.');
+    }
+  };
+
+  const ownerMarkAbsent = async (staffId) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .upsert({
+          staff_id: staffId,
+          date: selectedAttendanceDate,
+          status: 'absent',
+          in_time: null,
+          out_time: null,
+          updated_by: userProfile.id,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'staff_id,date'
+        });
+      if (error) throw error;
+      setSuccessMsg('Staff member marked as Absent.');
+      loadAttendanceForSelectedDate();
+      loadDashboardData();
+    } catch (error) {
+      setErrorMsg(error.message || 'Error marking absent.');
+    }
+  };
+
+  const ownerCheckOut = async (staffId) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    const outTimeIso = getTimestampForDate(selectedAttendanceDate, true);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          out_time: outTimeIso,
+          updated_by: userProfile.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('staff_id', staffId)
+        .eq('date', selectedAttendanceDate);
+      if (error) throw error;
+      setSuccessMsg('Staff member checked out successfully.');
+      loadAttendanceForSelectedDate();
+      loadDashboardData();
+    } catch (error) {
+      setErrorMsg(error.message || 'Error checking out.');
+    }
+  };
+
+  const ownerResetAttendance = async (staffId) => {
+    if (!window.confirm('Are you sure you want to reset attendance for this staff member on this date?')) return;
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('staff_id', staffId)
+        .eq('date', selectedAttendanceDate);
+      if (error) throw error;
+      setSuccessMsg('Attendance record reset successfully.');
+      loadAttendanceForSelectedDate();
+      loadDashboardData();
+    } catch (error) {
+      setErrorMsg(error.message || 'Error resetting attendance.');
+    }
+  };
+
+  const ownerUpdateTimes = async (staffId, newInTime, newOutTime) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const finalIn = new Date(`${selectedAttendanceDate}T${newInTime}:00`).toISOString();
+      const finalOut = newOutTime ? new Date(`${selectedAttendanceDate}T${newOutTime}:00`).toISOString() : null;
+
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          in_time: finalIn,
+          out_time: finalOut,
+          updated_by: userProfile.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('staff_id', staffId)
+        .eq('date', selectedAttendanceDate);
+
+      if (error) throw error;
+      setSuccessMsg('Attendance times updated successfully.');
+      loadAttendanceForSelectedDate();
+      loadDashboardData();
+    } catch (error) {
+      setErrorMsg(error.message || 'Error updating times.');
+    }
+  };
 
   // Load baseline dashboard data
   const loadDashboardData = useCallback(async () => {
@@ -584,65 +931,83 @@ export default function OwnerDashboard({ userProfile }) {
           </div>
 
           <nav className="sidebar-nav">
-            <button onClick={() => setActiveTab('overview')} className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}>
+            <button onClick={() => handleTabChange('overview')} className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}>
               <Store size={18} /> Overview
             </button>
-            <button onClick={() => setActiveTab('staff')} className={`nav-item ${activeTab === 'staff' ? 'active' : ''}`}>
+            <button onClick={() => handleTabChange('attendance')} className={`nav-item ${activeTab === 'attendance' ? 'active' : ''}`}>
+              <Clock size={18} /> Attendance
+            </button>
+            <button onClick={() => handleTabChange('staff')} className={`nav-item ${activeTab === 'staff' ? 'active' : ''}`}>
               <Users size={18} /> Staff Directory
             </button>
-            <button onClick={() => setActiveTab('correction')} className={`nav-item ${activeTab === 'correction' ? 'active' : ''}`}>
+            <button onClick={() => handleTabChange('expenses')} className={`nav-item ${activeTab === 'expenses' ? 'active' : ''}`}>
+              <Wallet size={18} /> Expenses & Salaries
+            </button>
+            <button onClick={() => handleTabChange('correction')} className={`nav-item ${activeTab === 'correction' ? 'active' : ''}`}>
               <Edit2 size={18} /> Corrections
             </button>
-            <button onClick={() => setActiveTab('reports')} className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}>
+            <button onClick={() => handleTabChange('reports')} className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}>
               <FileText size={18} /> Reports
             </button>
-            <button onClick={() => setActiveTab('access')} className={`nav-item ${activeTab === 'access' ? 'active' : ''}`}>
+            <button onClick={() => handleTabChange('access')} className={`nav-item ${activeTab === 'access' ? 'active' : ''}`}>
               <Shield size={18} /> User Access
             </button>
           </nav>
-
-          <div className="sidebar-footer">
-            <button onClick={handleLogout} className="btn-logout">
-              <LogOut size={18} /> Sign Out
-            </button>
-          </div>
-        </aside>
-
-        {/* Dashboard Main Workspace */}
-        <main className="main-content">
-          
-          <div className="header-container">
-            <div className="page-title">
-              {activeTab === 'overview' && (
-                <>
-                  <h1>Overview Dashboard</h1>
-                  <p>Shop metrics summary for today: {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </>
-              )}
-              {activeTab === 'staff' && (
-                <>
-                  <h1>Staff Directory</h1>
-                  <p>Manage shop personnel details and expected shifts</p>
-                </>
-              )}
-              {activeTab === 'correction' && (
-                <>
-                  <h1>Attendance Corrections</h1>
-                  <p>Manually adjust check-in/out logs or status for any day</p>
-                </>
-              )}
-              {activeTab === 'reports' && (
-                <>
-                  <h1>Monthly Analytics & Reports</h1>
-                  <p>Review working hours, attendance percentages, and late arrivals</p>
-                </>
-              )}
-              {activeTab === 'access' && (
-                <>
-                  <h1>Access Control Settings</h1>
-                  <p>Manage and authorize manager/owner user accounts</p>
-                </>
-              )}
+ 
+           <div className="sidebar-footer">
+             <button onClick={handleLogout} className="btn-logout">
+               <LogOut size={18} /> Sign Out
+             </button>
+           </div>
+         </aside>
+ 
+         {/* Dashboard Main Workspace */}
+         <main className="main-content">
+           
+           <div className="header-container">
+             <div className="page-title">
+               {activeTab === 'overview' && (
+                 <>
+                   <h1>Overview Dashboard</h1>
+                   <p>Shop metrics summary for today: {new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                 </>
+               )}
+               {activeTab === 'attendance' && (
+                 <>
+                   <h1>Attendance Management</h1>
+                   <p>Mark, edit and view attendance logs for any past or current date</p>
+                 </>
+               )}
+               {activeTab === 'staff' && (
+                 <>
+                   <h1>Staff Directory</h1>
+                   <p>Manage shop personnel details and expected shifts</p>
+                 </>
+               )}
+               {activeTab === 'expenses' && (
+                 <>
+                   <h1>Expenses & Salaries</h1>
+                   <p>Manage shop expenses, utility bills, and staff payroll</p>
+                 </>
+               )}
+               {activeTab === 'correction' && (
+                 <>
+                   <h1>Attendance Corrections</h1>
+                   <p>Manually adjust check-in/out logs or status for any day</p>
+                 </>
+               )}
+               {activeTab === 'reports' && (
+                 <>
+                   <h1>Monthly Analytics & Reports</h1>
+                   <p>Review working hours, attendance percentages, and late arrivals</p>
+                 </>
+               )}
+               {activeTab === 'access' && (
+                 <>
+                   <h1>Access Control Settings</h1>
+                   <p>Manage and authorize manager/owner user accounts</p>
+                 </>
+               )}
             </div>
 
             <div className="header-actions">
@@ -675,6 +1040,121 @@ export default function OwnerDashboard({ userProfile }) {
 
           {/* TAB CONTENTS */}
           
+          {/* 0. ATTENDANCE MANAGEMENT TAB */}
+          {activeTab === 'attendance' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Date Selection Panel */}
+              <div className="glass-card flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>Select Log Date:</span>
+                  <input
+                    type="date"
+                    className="input-control"
+                    style={{ width: '180px', padding: '0.5rem' }}
+                    value={selectedAttendanceDate}
+                    max={todayStr}
+                    onChange={(e) => setSelectedAttendanceDate(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setSelectedAttendanceDate(todayStr)} 
+                      className={`btn btn-sm ${selectedAttendanceDate === todayStr ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      Today
+                    </button>
+                    <button 
+                      onClick={() => setSelectedAttendanceDate(getLocalDateString(-1))} 
+                      className={`btn btn-sm ${selectedAttendanceDate === getLocalDateString(-1) ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      Yesterday
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Status:</span>
+                  <span className="badge badge-info" style={{ textTransform: 'none' }}>
+                    Viewing: {selectedAttendanceDate === todayStr ? "Today's Live Logs" : `Historical Logs (${selectedAttendanceDate})`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Attendance marking card */}
+              <div className="glass-card">
+                <div className="flex justify-between items-center mb-4" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+                  <h2>Personnel Attendance Registry</h2>
+                  
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', width: '100%', md: 'auto', maxWidth: '500px' }}>
+                    <div className="search-input-wrapper" style={{ flexGrow: 1, margin: 0 }}>
+                      <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder="Search personnel by name..."
+                        className="input-control"
+                        style={{ paddingLeft: '2.2rem', padding: '0.5rem 0.5rem 0.5rem 2.2rem', fontSize: '0.85rem' }}
+                        value={attendanceSearchQuery}
+                        onChange={(e) => setAttendanceSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    <select
+                      className="input-control"
+                      style={{ width: '150px', padding: '0.5rem', fontSize: '0.85rem' }}
+                      value={attendanceStatusFilter}
+                      onChange={(e) => setAttendanceStatusFilter(e.target.value)}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending">Not Marked</option>
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
+                    </select>
+                  </div>
+                </div>
+
+                {attendanceLoading ? (
+                  <div className="spinner-container" style={{ padding: '3rem 0' }}>
+                    <div className="spinner"></div>
+                  </div>
+                ) : staff.length === 0 ? (
+                  <div className="text-center" style={{ padding: '3rem 0', color: 'var(--text-secondary)' }}>
+                    No personnel defined. Add staff members in the "Staff Directory" tab first.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {staff
+                      .filter(s => {
+                        const matchesSearch = s.name.toLowerCase().includes(attendanceSearchQuery.toLowerCase());
+                        const rec = attendanceForSelectedDate[s.id];
+                        const status = rec ? rec.status : 'pending';
+                        const matchesFilter = attendanceStatusFilter === 'all' || status === attendanceStatusFilter;
+                        return matchesSearch && matchesFilter;
+                      })
+                      .map(s => {
+                        const rec = attendanceForSelectedDate[s.id];
+                        return (
+                          <OwnerStaffAttendanceCard
+                            key={s.id}
+                            staffMember={s}
+                            record={rec}
+                            onMarkPresent={ownerMarkPresent}
+                            onMarkAbsent={ownerMarkAbsent}
+                            onCheckOut={ownerCheckOut}
+                            onReset={ownerResetAttendance}
+                            onUpdateTimes={ownerUpdateTimes}
+                          />
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 0. EXPENSES & SALARIES TAB */}
+          {activeTab === 'expenses' && (
+            <Expenses userProfile={userProfile} />
+          )}
+
           {/* 1. OVERVIEW SCREEN */}
           {activeTab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

@@ -205,3 +205,111 @@ CREATE POLICY "Managers can update attendance for today"
         )
         AND date = CURRENT_DATE
     );
+
+-- EXPENSES & SALARIES MANAGEMENT SYSTEM
+
+-- Create expense_categories table
+CREATE TABLE IF NOT EXISTS public.expense_categories (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    name TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS for expense_categories
+ALTER TABLE public.expense_categories ENABLE ROW LEVEL SECURITY;
+
+-- 1. Owners and Managers can select categories
+CREATE POLICY "Owners and managers can view categories" 
+    ON public.expense_categories FOR SELECT 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('owner', 'manager')
+        )
+    );
+
+-- 2. Only Owners can insert categories
+CREATE POLICY "Owners can insert categories" 
+    ON public.expense_categories FOR INSERT 
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role = 'owner'
+        )
+    );
+
+-- 3. Only Owners can delete categories
+CREATE POLICY "Owners can delete categories" 
+    ON public.expense_categories FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role = 'owner'
+        )
+    );
+
+-- Seed default categories
+INSERT INTO public.expense_categories (name) VALUES
+    ('Electricity Bill'),
+    ('Water Bill'),
+    ('Shop Rent'),
+    ('Salary Payout'),
+    ('Maintenance'),
+    ('Supplies'),
+    ('Other')
+ON CONFLICT (name) DO NOTHING;
+
+-- Create shop_expenses table
+CREATE TABLE IF NOT EXISTS public.shop_expenses (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    category TEXT NOT NULL,
+    title TEXT NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
+    date DATE DEFAULT CURRENT_DATE NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS for shop_expenses
+ALTER TABLE public.shop_expenses ENABLE ROW LEVEL SECURITY;
+
+-- 1. Owners and Managers can select expenses
+CREATE POLICY "Owners and managers can view expenses" 
+    ON public.shop_expenses FOR SELECT 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('owner', 'manager')
+        )
+    );
+
+-- 2. Owners and Managers can insert expenses
+CREATE POLICY "Owners and managers can insert expenses" 
+    ON public.shop_expenses FOR INSERT 
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('owner', 'manager')
+        )
+    );
+
+-- 3. Owners and Managers can update expenses
+CREATE POLICY "Owners and managers can update expenses" 
+    ON public.shop_expenses FOR UPDATE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('owner', 'manager')
+        )
+    );
+
+-- 4. Owners and Managers can delete expenses
+CREATE POLICY "Owners and managers can delete expenses" 
+    ON public.shop_expenses FOR DELETE 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE id = auth.uid() AND role IN ('owner', 'manager')
+        )
+    );
+

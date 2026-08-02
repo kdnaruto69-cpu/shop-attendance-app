@@ -27,14 +27,16 @@ if (!useMock) {
   
   // Seed initial mock data in localStorage if not present
   const seedMockData = () => {
-    // Check seed version. If old or not v4, clear existing mock data to apply the fresh clean state
+    // Check seed version. If old or not v6, clear existing mock data to apply the fresh clean state
     const seedVersion = localStorage.getItem('mock_seed_version');
-    if (seedVersion !== 'v4') {
+    if (seedVersion !== 'v6') {
       localStorage.removeItem('mock_profiles');
       localStorage.removeItem('mock_staff');
       localStorage.removeItem('mock_attendance');
+      localStorage.removeItem('mock_shop_expenses');
+      localStorage.removeItem('mock_expense_categories');
       sessionStorage.removeItem('mock_session');
-      localStorage.setItem('mock_seed_version', 'v4');
+      localStorage.setItem('mock_seed_version', 'v6');
     }
 
     // 1. Seed Users / Profiles (Seeding fresh owner credentials set by AI)
@@ -60,6 +62,25 @@ if (!useMock) {
     // 3. Seed Attendance History (Start clean - empty array)
     if (!localStorage.getItem('mock_attendance')) {
       localStorage.setItem('mock_attendance', JSON.stringify([]));
+    }
+
+    // 4. Seed Shop Expenses (Start clean - empty array)
+    if (!localStorage.getItem('mock_shop_expenses')) {
+      localStorage.setItem('mock_shop_expenses', JSON.stringify([]));
+    }
+
+    // 5. Seed Default Expense Categories
+    if (!localStorage.getItem('mock_expense_categories')) {
+      const defaultCategories = [
+        { id: 'cat-1', name: 'Electricity Bill', created_at: new Date().toISOString() },
+        { id: 'cat-2', name: 'Water Bill', created_at: new Date().toISOString() },
+        { id: 'cat-3', name: 'Shop Rent', created_at: new Date().toISOString() },
+        { id: 'cat-4', name: 'Salary Payout', created_at: new Date().toISOString() },
+        { id: 'cat-5', name: 'Maintenance', created_at: new Date().toISOString() },
+        { id: 'cat-6', name: 'Supplies', created_at: new Date().toISOString() },
+        { id: 'cat-7', name: 'Other', created_at: new Date().toISOString() }
+      ];
+      localStorage.setItem('mock_expense_categories', JSON.stringify(defaultCategories));
     }
   };
 
