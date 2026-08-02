@@ -39,19 +39,9 @@ if (!useMock) {
       localStorage.setItem('mock_seed_version', 'v9');
     }
 
-    // 1. Seed Users / Profiles (Seeding fresh owner credentials set by AI)
+    // 1. Seed Users / Profiles (Start clean - empty array)
     if (!localStorage.getItem('mock_profiles')) {
-      const initialProfiles = [
-        { 
-          id: 'owner-id', 
-          email: 'owner@shop.com', 
-          full_name: 'V-Mart Owner', 
-          role: 'owner', 
-          password: 'owner123', // Pre-seeded password
-          updated_at: new Date().toISOString() 
-        }
-      ];
-      localStorage.setItem('mock_profiles', JSON.stringify(initialProfiles));
+      localStorage.setItem('mock_profiles', JSON.stringify([]));
     }
 
     // 2. Seed Staff (Start clean - empty array)

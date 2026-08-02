@@ -25,11 +25,7 @@ export default function Login() {
 
     // Convert username to email format for Supabase auth
     let loginEmail = normalizedUsername;
-    if (normalizedUsername === 'owner') {
-      loginEmail = 'owner@shop.com';
-    } else if (normalizedUsername === 'naro') {
-      loginEmail = 'naro@shop.com';
-    } else if (!loginEmail.includes('@')) {
+    if (!loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@shop.com`;
     }
 
