@@ -27,16 +27,16 @@ if (!useMock) {
   
   // Seed initial mock data in localStorage if not present
   const seedMockData = () => {
-    // Check seed version. If old or not v7, clear existing mock data to apply the fresh clean state
+    // Check seed version. If old or not v8, clear existing mock data to apply the fresh clean state
     const seedVersion = localStorage.getItem('mock_seed_version');
-    if (seedVersion !== 'v7') {
+    if (seedVersion !== 'v8') {
       localStorage.removeItem('mock_profiles');
       localStorage.removeItem('mock_staff');
       localStorage.removeItem('mock_attendance');
       localStorage.removeItem('mock_shop_expenses');
       localStorage.removeItem('mock_expense_categories');
       sessionStorage.removeItem('mock_session');
-      localStorage.setItem('mock_seed_version', 'v7');
+      localStorage.setItem('mock_seed_version', 'v8');
     }
 
     // 1. Seed Users / Profiles (Seeding fresh owner credentials set by AI)
@@ -57,9 +57,9 @@ if (!useMock) {
     // 2. Seed Staff (Pre-seeded sample staff)
     if (!localStorage.getItem('mock_staff')) {
       const staffList = [
-        { id: 'staff-1', name: 'John Doe', phone: '9876543210', status: 'active', expected_in_time: '09:00:00', base_salary: 15000, pay_cycle: 'End of month', joined_date: '2026-06-01' },
-        { id: 'staff-2', name: 'Jane Smith', phone: '8765432109', status: 'active', expected_in_time: '09:30:00', base_salary: 18000, pay_cycle: '5th', joined_date: '2026-06-01' },
-        { id: 'staff-3', name: 'Bob Johnson', phone: '7654321098', status: 'active', expected_in_time: '10:00:00', base_salary: 12000, pay_cycle: '10th', joined_date: '2026-06-01' }
+        { id: 'staff-1', name: 'John Doe', phone: '9876543210', status: 'active', expected_in_time: '09:00:00', expected_out_time: '17:00:00', base_salary: 15000, pay_cycle: 'End of month', joined_date: '2026-06-01' },
+        { id: 'staff-2', name: 'Jane Smith', phone: '8765432109', status: 'active', expected_in_time: '09:30:00', expected_out_time: '17:30:00', base_salary: 18000, pay_cycle: '5th', joined_date: '2026-06-01' },
+        { id: 'staff-3', name: 'Bob Johnson', phone: '7654321098', status: 'active', expected_in_time: '10:00:00', expected_out_time: '18:00:00', base_salary: 12000, pay_cycle: '10th', joined_date: '2026-06-01' }
       ];
       localStorage.setItem('mock_staff', JSON.stringify(staffList));
     }

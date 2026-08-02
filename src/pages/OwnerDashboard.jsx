@@ -483,7 +483,7 @@ export default function OwnerDashboard({ userProfile }) {
   /* ==========================================================
      TAB 2: STAFF DIRECTORY MANAGEMENT
      ========================================================== */
-  const [staffForm, setStaffForm] = useState({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
+  const [staffForm, setStaffForm] = useState({ id: null, name: '', phone: '', expected_in_time: '09:00', expected_out_time: '17:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
   const [isEditingStaff, setIsEditingStaff] = useState(false);
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
 
@@ -492,6 +492,7 @@ export default function OwnerDashboard({ userProfile }) {
     setErrorMsg('');
     setSuccessMsg('');
     const formattedExpectedTime = staffForm.expected_in_time.length === 5 ? `${staffForm.expected_in_time}:00` : staffForm.expected_in_time;
+    const formattedOutTime = staffForm.expected_out_time.length === 5 ? `${staffForm.expected_out_time}:00` : staffForm.expected_out_time;
     const salaryNum = parseFloat(staffForm.base_salary) || 0;
 
     try {
@@ -503,6 +504,7 @@ export default function OwnerDashboard({ userProfile }) {
             name: staffForm.name,
             phone: staffForm.phone || null,
             expected_in_time: formattedExpectedTime,
+            expected_out_time: formattedOutTime,
             status: staffForm.status,
             base_salary: salaryNum,
             pay_cycle: staffForm.pay_cycle
@@ -519,6 +521,7 @@ export default function OwnerDashboard({ userProfile }) {
             name: staffForm.name,
             phone: staffForm.phone || null,
             expected_in_time: formattedExpectedTime,
+            expected_out_time: formattedOutTime,
             status: 'active',
             base_salary: salaryNum,
             pay_cycle: staffForm.pay_cycle
@@ -528,7 +531,7 @@ export default function OwnerDashboard({ userProfile }) {
         setSuccessMsg(`Staff "${staffForm.name}" added successfully.`);
       }
 
-      setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
+      setStaffForm({ id: null, name: '', phone: '', expected_in_time: '09:00', expected_out_time: '17:00', status: 'active', base_salary: '0', pay_cycle: 'End of month' });
       setIsEditingStaff(false);
       loadDashboardData();
     } catch (error) {
@@ -543,6 +546,7 @@ export default function OwnerDashboard({ userProfile }) {
       name: s.name,
       phone: s.phone || '',
       expected_in_time: s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00',
+      expected_out_time: s.expected_out_time ? s.expected_out_time.slice(0, 5) : '17:00',
       status: s.status,
       base_salary: (s.base_salary || 0).toString(),
       pay_cycle: s.pay_cycle || 'End of month'
@@ -1313,7 +1317,7 @@ export default function OwnerDashboard({ userProfile }) {
                       <tr>
                         <th>Name</th>
                         <th>Phone</th>
-                        <th>Shift Start</th>
+                        <th>Shift Schedule</th>
                         <th>Base Salary</th>
                         <th>Salary Cycle</th>
                         <th>Joined</th>
@@ -1331,7 +1335,7 @@ export default function OwnerDashboard({ userProfile }) {
                           <tr key={s.id}>
                             <td><strong style={{ color: '#fff' }}>{s.name}</strong></td>
                             <td>{s.phone || '--'}</td>
-                            <td>{s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00'}</td>
+                            <td>{s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00'} - {s.expected_out_time ? s.expected_out_time.slice(0, 5) : '17:00'}</td>
                             <td><strong style={{ color: 'var(--success-color)' }}>₹{s.base_salary || 0}</strong></td>
                             <td><span style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{s.pay_cycle || 'End of month'}</span></td>
                             <td>{s.joined_date || '--'}</td>
@@ -1389,18 +1393,27 @@ export default function OwnerDashboard({ userProfile }) {
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Expected Shift In-Time (Standard Start)</label>
-                    <input
-                      type="time"
-                      required
-                      className="input-control"
-                      value={staffForm.expected_in_time}
-                      onChange={(e) => setStaffForm({ ...staffForm, expected_in_time: e.target.value })}
-                    />
-                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
-                      Arrivals after this time count as "Late Arrivals".
-                    </small>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Shift Start (In-Time)</label>
+                      <input
+                        type="time"
+                        required
+                        className="input-control"
+                        value={staffForm.expected_in_time}
+                        onChange={(e) => setStaffForm({ ...staffForm, expected_in_time: e.target.value })}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Shift End (Out-Time)</label>
+                      <input
+                        type="time"
+                        required
+                        className="input-control"
+                        value={staffForm.expected_out_time}
+                        onChange={(e) => setStaffForm({ ...staffForm, expected_out_time: e.target.value })}
+                      />
+                    </div>
                   </div>
 
                   <div className="form-group">
@@ -1425,10 +1438,18 @@ export default function OwnerDashboard({ userProfile }) {
                       required
                     >
                       <option value="1st of month">1st of month</option>
-                      <option value="5th">5th</option>
-                      <option value="10th">10th</option>
-                      <option value="15th">15th</option>
-                      <option value="25th">25th</option>
+                      {Array.from({ length: 30 }, (_, i) => {
+                        const day = i + 2;
+                        let suffix = 'th';
+                        if (day === 2) suffix = 'nd';
+                        else if (day === 3) suffix = 'rd';
+                        else if (day === 21) suffix = 'st';
+                        else if (day === 22) suffix = 'nd';
+                        else if (day === 23) suffix = 'rd';
+                        else if (day === 31) suffix = 'st';
+                        const val = `${day}${suffix}`;
+                        return <option key={val} value={val}>{val}</option>;
+                      })}
                       <option value="End of month">End of month</option>
                     </select>
                     <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>

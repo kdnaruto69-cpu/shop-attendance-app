@@ -23,8 +23,9 @@ CREATE TABLE IF NOT EXISTS public.staff (
     phone TEXT,
     status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
     expected_in_time TIME DEFAULT '09:00:00', -- standard shift start time
+    expected_out_time TIME DEFAULT '17:00:00', -- standard shift end time
     base_salary NUMERIC(12, 2) DEFAULT 0.00, -- monthly base salary
-    pay_cycle TEXT DEFAULT 'End of month' CHECK (pay_cycle IN ('1st of month', '5th', '10th', '15th', '25th', 'End of month')), -- salary cycle start/end
+    pay_cycle TEXT DEFAULT 'End of month', -- salary cycle start/end (e.g. 1st, 5th, End of month)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     joined_date DATE DEFAULT CURRENT_DATE
 );
