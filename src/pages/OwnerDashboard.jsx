@@ -1314,6 +1314,8 @@ export default function OwnerDashboard({ userProfile }) {
                         <th>Name</th>
                         <th>Phone</th>
                         <th>Shift Start</th>
+                        <th>Base Salary</th>
+                        <th>Salary Cycle</th>
                         <th>Joined</th>
                         <th>Status</th>
                         <th>Actions</th>
@@ -1322,7 +1324,7 @@ export default function OwnerDashboard({ userProfile }) {
                     <tbody>
                       {filteredStaffList.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="text-center" style={{ padding: '2rem' }}>No staff members found.</td>
+                          <td colSpan="8" className="text-center" style={{ padding: '2rem' }}>No staff members found.</td>
                         </tr>
                       ) : (
                         filteredStaffList.map(s => (
@@ -1330,6 +1332,8 @@ export default function OwnerDashboard({ userProfile }) {
                             <td><strong style={{ color: '#fff' }}>{s.name}</strong></td>
                             <td>{s.phone || '--'}</td>
                             <td>{s.expected_in_time ? s.expected_in_time.slice(0, 5) : '09:00'}</td>
+                            <td><strong style={{ color: 'var(--success-color)' }}>₹{s.base_salary || 0}</strong></td>
+                            <td><span style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{s.pay_cycle || 'End of month'}</span></td>
                             <td>{s.joined_date || '--'}</td>
                             <td>
                               <span className={`badge ${s.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
