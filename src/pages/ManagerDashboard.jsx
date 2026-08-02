@@ -480,7 +480,7 @@ export default function ManagerDashboard({ userProfile }) {
           )}
 
           {activeTab === 'expenses' && (
-            <Expenses userProfile={userProfile} />
+            <Expenses userProfile={userProfile} setActiveTab={setActiveTab} />
           )}
         </main>
       </div>

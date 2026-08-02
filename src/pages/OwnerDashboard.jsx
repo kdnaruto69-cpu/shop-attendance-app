@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase, createSecondaryClient } from '../supabaseClient';
 import { 
-  Users, UserCheck, UserX, Clock, Shield, Search, 
+  Users, UserCheck, UserX, Clock, Shield, Search, Plus, 
   Edit2, Trash2, FileText, Download, Save, RefreshCw, LogOut, Store, Check, AlertCircle, X, Wallet
 } from 'lucide-react';
 import Expenses from './Expenses';
@@ -1163,7 +1163,7 @@ export default function OwnerDashboard({ userProfile }) {
 
           {/* 0. EXPENSES & SALARIES TAB */}
           {activeTab === 'expenses' && (
-            <Expenses userProfile={userProfile} />
+            <Expenses userProfile={userProfile} setActiveTab={setActiveTab} />
           )}
 
           {/* 1. OVERVIEW SCREEN */}
@@ -1328,7 +1328,20 @@ export default function OwnerDashboard({ userProfile }) {
                     <tbody>
                       {filteredStaffList.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="text-center" style={{ padding: '2rem' }}>No staff members found.</td>
+                          <td colSpan="8" className="text-center" style={{ padding: '3rem 1rem' }}>
+                            <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No staff members found in the directory.</div>
+                            <button 
+                              type="button" 
+                              className="btn btn-primary btn-sm flex justify-center items-center gap-1"
+                              style={{ margin: '0 auto' }}
+                              onClick={() => {
+                                const nameInput = document.querySelector('input[placeholder="e.g. Rachel Green"]');
+                                if (nameInput) nameInput.focus();
+                              }}
+                            >
+                              <Plus size={14} /> Add First Worker
+                            </button>
+                          </td>
                         </tr>
                       ) : (
                         filteredStaffList.map(s => (

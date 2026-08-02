@@ -27,16 +27,16 @@ if (!useMock) {
   
   // Seed initial mock data in localStorage if not present
   const seedMockData = () => {
-    // Check seed version. If old or not v8, clear existing mock data to apply the fresh clean state
+    // Check seed version. If old or not v9, clear existing mock data to apply the fresh clean state
     const seedVersion = localStorage.getItem('mock_seed_version');
-    if (seedVersion !== 'v8') {
+    if (seedVersion !== 'v9') {
       localStorage.removeItem('mock_profiles');
       localStorage.removeItem('mock_staff');
       localStorage.removeItem('mock_attendance');
       localStorage.removeItem('mock_shop_expenses');
       localStorage.removeItem('mock_expense_categories');
       sessionStorage.removeItem('mock_session');
-      localStorage.setItem('mock_seed_version', 'v8');
+      localStorage.setItem('mock_seed_version', 'v9');
     }
 
     // 1. Seed Users / Profiles (Seeding fresh owner credentials set by AI)
@@ -54,55 +54,19 @@ if (!useMock) {
       localStorage.setItem('mock_profiles', JSON.stringify(initialProfiles));
     }
 
-    // 2. Seed Staff (Pre-seeded sample staff)
+    // 2. Seed Staff (Start clean - empty array)
     if (!localStorage.getItem('mock_staff')) {
-      const staffList = [
-        { id: 'staff-1', name: 'John Doe', phone: '9876543210', status: 'active', expected_in_time: '09:00:00', expected_out_time: '17:00:00', base_salary: 15000, pay_cycle: 'End of month', joined_date: '2026-06-01' },
-        { id: 'staff-2', name: 'Jane Smith', phone: '8765432109', status: 'active', expected_in_time: '09:30:00', expected_out_time: '17:30:00', base_salary: 18000, pay_cycle: '5th', joined_date: '2026-06-01' },
-        { id: 'staff-3', name: 'Bob Johnson', phone: '7654321098', status: 'active', expected_in_time: '10:00:00', expected_out_time: '18:00:00', base_salary: 12000, pay_cycle: '10th', joined_date: '2026-06-01' }
-      ];
-      localStorage.setItem('mock_staff', JSON.stringify(staffList));
+      localStorage.setItem('mock_staff', JSON.stringify([]));
     }
 
-    // 3. Seed Attendance History (Pre-seeded present days)
+    // 3. Seed Attendance History (Start clean - empty array)
     if (!localStorage.getItem('mock_attendance')) {
-      const attList = [];
-      // John Doe (End of month) - Aug 1, 2
-      attList.push({ staff_id: 'staff-1', date: '2026-08-01', status: 'present', in_time: '2026-08-01T09:00:00.000Z', out_time: '2026-08-01T17:00:00.000Z', updated_by: 'owner-id' });
-      attList.push({ staff_id: 'staff-1', date: '2026-08-02', status: 'present', in_time: '2026-08-02T09:05:00.000Z', out_time: null, updated_by: 'owner-id' });
-      // July 1 to 31 (22 present days)
-      const johnDays = ['01','02','05','06','07','08','09','12','13','14','15','16','19','20','21','22','23','26','27','28','29','30'];
-      johnDays.forEach(d => {
-        attList.push({ staff_id: 'staff-1', date: `2026-07-${d}`, status: 'present', in_time: `2026-07-${d}T09:00:00.000Z`, out_time: `2026-07-${d}T17:00:00.000Z`, updated_by: 'owner-id' });
-      });
-
-      // Jane Smith (5th) - July 5 to Aug 4 (22 present days)
-      const janeDaysJuly = ['05','06','07','08','10','12','13','14','15','17','19','20','21','22','24','26','27','28','29','31'];
-      janeDaysJuly.forEach(d => {
-        attList.push({ staff_id: 'staff-2', date: `2026-07-${d}`, status: 'present', in_time: `2026-07-${d}T09:30:00.000Z`, out_time: `2026-07-${d}T17:30:00.000Z`, updated_by: 'owner-id' });
-      });
-      attList.push({ staff_id: 'staff-2', date: '2026-08-01', status: 'present', in_time: '2026-08-01T09:30:00.000Z', out_time: '2026-08-01T17:30:00.000Z', updated_by: 'owner-id' });
-      attList.push({ staff_id: 'staff-2', date: '2026-08-02', status: 'present', in_time: '2026-08-02T09:30:00.000Z', out_time: null, updated_by: 'owner-id' });
-
-      // Bob Johnson (10th) - July 10 to Aug 9 (18 present days)
-      const bobDaysJuly = ['10','11','13','14','15','16','18','20','21','22','23','25','27','28','29','30'];
-      bobDaysJuly.forEach(d => {
-        attList.push({ staff_id: 'staff-3', date: `2026-07-${d}`, status: 'present', in_time: `2026-07-${d}T10:00:00.000Z`, out_time: `2026-07-${d}T18:00:00.000Z`, updated_by: 'owner-id' });
-      });
-      attList.push({ staff_id: 'staff-3', date: '2026-08-01', status: 'present', in_time: '2026-08-01T10:00:00.000Z', out_time: '2026-08-01T18:00:00.000Z', updated_by: 'owner-id' });
-      attList.push({ staff_id: 'staff-3', date: '2026-08-02', status: 'present', in_time: '2026-08-02T10:00:00.000Z', out_time: null, updated_by: 'owner-id' });
-
-      localStorage.setItem('mock_attendance', JSON.stringify(attList));
+      localStorage.setItem('mock_attendance', JSON.stringify([]));
     }
 
-    // 4. Seed Shop Expenses (Pre-seeded salary advance & utilities)
+    // 4. Seed Shop Expenses (Start clean - empty array)
     if (!localStorage.getItem('mock_shop_expenses')) {
-      const expList = [
-        { id: 'exp-1', category: 'Electricity Bill', title: 'June Electricity Bill', amount: 3500, date: '2026-07-10', notes: 'Paid online via portal.' },
-        { id: 'exp-2', category: 'Shop Rent', title: 'July Shop Rent', amount: 15000, date: '2026-07-01', notes: 'Owner account bank transfer.' },
-        { id: 'exp-3', category: 'Salary Payout', title: 'Salary Advance - Bob Johnson', amount: 1000, date: '2026-07-15', notes: 'Emergency medical advance.', staff_id: 'staff-3' }
-      ];
-      localStorage.setItem('mock_shop_expenses', JSON.stringify(expList));
+      localStorage.setItem('mock_shop_expenses', JSON.stringify([]));
     }
 
     // 5. Seed Default Expense Categories

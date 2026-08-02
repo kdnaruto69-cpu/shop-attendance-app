@@ -7,7 +7,7 @@ import {
 
 const DEFAULT_CATEGORIES = ['Electricity Bill', 'Water Bill', 'Shop Rent', 'Salary Payout', 'Maintenance', 'Supplies', 'Other'];
 
-export default function Expenses({ userProfile }) {
+export default function Expenses({ userProfile, setActiveTab }) {
   const [expenses, setExpenses] = useState([]);
   const [staff, setStaff] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -749,8 +749,18 @@ export default function Expenses({ userProfile }) {
 
           <div style={{ flexGrow: 1, overflowY: 'auto', maxHeight: '490px', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.25rem' }}>
             {staff.length === 0 ? (
-              <div className="text-center" style={{ padding: '2rem 0', color: 'var(--text-muted)' }}>
-                No active staff found. Add staff in the "Staff Directory" tab.
+              <div className="text-center" style={{ padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No active staff found in directory.</div>
+                {setActiveTab && (
+                  <button 
+                    type="button" 
+                    className="btn btn-primary btn-sm flex justify-center items-center gap-1"
+                    style={{ margin: '0 auto' }}
+                    onClick={() => setActiveTab('staff')}
+                  >
+                    <Plus size={14} /> Go to Staff Directory
+                  </button>
+                )}
               </div>
             ) : (
               staff.map(s => {
@@ -828,8 +838,20 @@ export default function Expenses({ userProfile }) {
         </div>
 
         {staff.length === 0 ? (
-          <div className="text-center" style={{ padding: '3rem 0', color: 'var(--text-muted)' }}>
-            No active workers found. Add worker salary profiles in the "Staff Directory" tab.
+          <div className="text-center" style={{ padding: '4rem 1rem' }}>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem', fontSize: '1rem' }}>
+              No active workers found. Please add worker profiles in the Staff Directory to view reports.
+            </div>
+            {setActiveTab && (
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm flex justify-center items-center gap-1"
+                style={{ margin: '0 auto' }}
+                onClick={() => setActiveTab('staff')}
+              >
+                <Plus size={14} /> Go to Staff Directory
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: '1.5rem' }}>
@@ -1004,8 +1026,19 @@ export default function Expenses({ userProfile }) {
             <div className="spinner"></div>
           </div>
         ) : historyExpenses.length === 0 ? (
-          <div className="text-center" style={{ padding: '4rem 0', color: 'var(--text-muted)' }}>
-            No expense records found for the month of {selectedMonth}.
+          <div className="text-center" style={{ padding: '4rem 1rem' }}>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>No expense records found for the month of {selectedMonth}.</div>
+            <button 
+              type="button" 
+              className="btn btn-primary btn-sm flex justify-center items-center gap-1"
+              style={{ margin: '0 auto' }}
+              onClick={() => {
+                const titleInput = document.querySelector('input[placeholder="e.g. July Electric Bill, Office tea cups"]');
+                if (titleInput) titleInput.focus();
+              }}
+            >
+              <Plus size={14} /> Add First Expense
+            </button>
           </div>
         ) : (
           <div className="table-container">
