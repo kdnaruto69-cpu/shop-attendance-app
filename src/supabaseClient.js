@@ -372,7 +372,7 @@ if (!useMock) {
         
         // Strict password checking for seeded users
         if (!matched || (matched.password && matched.password !== password)) {
-          return { data: null, error: { message: 'Invalid credentials. Use username "owner" and password "owner123".' } };
+          return { data: null, error: { message: 'Invalid username or password. Please try again.' } };
         }
         
         // Successful mock login
@@ -445,7 +445,7 @@ if (!useMock) {
       return channelObj;
     },
 
-    removeChannel(channel) {
+    removeChannel(_channel) {
       // Clear matching channels in registry
       mockChannels.length = 0;
     }

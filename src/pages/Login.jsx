@@ -40,8 +40,8 @@ export default function Login() {
       });
 
       if (error) throw error;
-    } catch (error) {
-      setErrorMsg(error.message || 'Failed to sign in. Please check your credentials.');
+    } catch {
+      setErrorMsg('Invalid username or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function Login() {
                 type="text"
                 required
                 className="input-control"
-                placeholder="e.g. owner or manager"
+                placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}
