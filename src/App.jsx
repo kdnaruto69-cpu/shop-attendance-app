@@ -31,16 +31,15 @@ export default function App() {
 
       // If no profile exists, or if role is currently pending
       if (!profileData || profileData.role === 'pending') {
-        // Query to check if any user with role = 'owner' exists
-        const { data: ownersList, error: ownerError } = await supabase
+        // Query the profiles table to check the total count of existing profiles
+        const { count, error: countError } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('role', 'owner');
+          .select('*', { count: 'exact', head: true });
 
-        if (ownerError) throw ownerError;
+        if (countError) throw countError;
 
-        // If NO owners exist in the system, automatically promote this first user to 'owner'
-        if (!ownersList || ownersList.length === 0) {
+        // ONLY perform automatic owner creation/promotion IF count === 0
+        if (count === 0) {
           const newProfile = {
             id: userId,
             email: userEmail,
@@ -58,7 +57,7 @@ export default function App() {
           if (upsertError) throw upsertError;
           profileData = upsertedData || newProfile;
         } else if (!profileData) {
-          // If owners exist, but this profile doesn't, create it as pending
+          // If profiles exist in the system, but this profile doesn't, create it as pending
           const newProfile = {
             id: userId,
             email: userEmail,

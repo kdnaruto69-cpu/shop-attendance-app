@@ -78,9 +78,10 @@ if (!useMock) {
       this.columns = '*';
     }
 
-    select(columns = '*') {
+    select(columns = '*', options = {}) {
       this.queryType = 'select';
       this.columns = columns;
+      this.selectOptions = options;
       return this;
     }
 
@@ -185,14 +186,22 @@ if (!useMock) {
             });
           }
 
+          let count = null;
+          if (this.selectOptions && this.selectOptions.count === 'exact') {
+            count = data.length;
+          }
+          if (this.selectOptions && this.selectOptions.head === true) {
+            data = [];
+          }
+
           if (this.isSingle) {
-            if (data.length === 0) return { data: null, error: { message: 'Row not found' } };
-            return { data: data[0], error: null };
+            if (data.length === 0) return { data: null, count, error: { message: 'Row not found' } };
+            return { data: data[0], count, error: null };
           }
           if (this.isMaybeSingle) {
-            return { data: data[0] || null, error: null };
+            return { data: data[0] || null, count, error: null };
           }
-          return { data, error: null };
+          return { data, count, error: null };
         }
 
         if (this.queryType === 'insert') {
