@@ -13,6 +13,13 @@ export default function Login() {
     setLoading(true);
     setErrorMsg('');
 
+    // Require the user to type their password
+    if (!password) {
+      setErrorMsg('Please enter your password.');
+      setLoading(false);
+      return;
+    }
+
     // Normalize username: lowercase and trim
     const normalizedUsername = username.trim().toLowerCase();
 
@@ -20,20 +27,16 @@ export default function Login() {
     let loginEmail = normalizedUsername;
     if (normalizedUsername === 'owner') {
       loginEmail = 'owner@shop.com';
+    } else if (normalizedUsername === 'naro') {
+      loginEmail = 'naro@shop.com';
     } else if (!loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@shop.com`;
-    }
-
-    // Hard fallback password 'owner123' for owner account (empty or provided)
-    let loginPassword = password;
-    if (normalizedUsername === 'owner') {
-      loginPassword = 'owner123';
     }
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
-        password: loginPassword,
+        password: password,
       });
 
       if (error) throw error;
@@ -101,10 +104,11 @@ export default function Login() {
                   color: 'var(--text-muted)' 
                 }} 
               />
-              <input
+               <input
                 type="password"
+                required
                 className="input-control"
-                placeholder="•••••••• (blank for owner default)"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{ paddingLeft: '2.5rem' }}
